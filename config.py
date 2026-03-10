@@ -8,7 +8,7 @@ GCS_BUCKET    = os.environ.get("GCS_BUCKET",        "aria-media-bucket")
 TASKS_QUEUE   = os.environ.get("CLOUD_TASKS_QUEUE", "aria-jobs")
 APP_URL       = os.environ.get("APP_URL",            "https://aria-79255818146.us-central1.run.app")
 TASK_SECRET   = os.environ.get("TASK_SECRET",       "aria-task-secret-2025")
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "79255818146-0mp4s072hmpll3btti8a107n6pfce1ba.apps.googleusercontent.com")
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 
 # ── App ───────────────────────────────────────────────────────────────────
 SECRET_KEY = os.environ.get("SECRET_KEY", "aria-studio-secret-2025-xk91mw")
