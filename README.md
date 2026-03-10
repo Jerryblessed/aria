@@ -4,7 +4,7 @@ AI-powered cinematic story generator built on Google Cloud + Gemini.
 
 ## Stack
 - **Backend**: Flask + Flask-Sock (WebSockets)
-- **AI**: Gemini 2.5 Flash (chat), Veo 2 (video), Gemini image gen, Gemini Live (voice)
+- **AI**: Gemini 3.1 Flash (chat), Veo 3.1 (video), Gemini 3.1 flash image(image gen), Gemini Live native audio (voice) and gemini tts (voice translation) - via vertex AI
 - **Storage**: Google Cloud Storage, Firestore
 - **Infra**: Cloud Run, Cloud Tasks
 
