@@ -1,6 +1,5 @@
 FROM python:3.12-slim
 
-# System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
@@ -15,5 +14,6 @@ COPY . .
 ENV PORT=8080
 EXPOSE 8080
 
-CMD exec gunicorn --worker-class geventwebsocket.gunicorn.workers.GeventWebSocketWorker \
-    --workers 1 --bind 0.0.0.0:$PORT --timeout 600 main:app
+CMD exec gunicorn --worker-class gthread \
+    --workers 1 --threads 8 \
+    --bind 0.0.0.0:$PORT --timeout 600 main:app
