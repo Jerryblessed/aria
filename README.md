@@ -60,18 +60,6 @@ ARIA is a multimodal AI storyteller that generates cinematic scenes through natu
 
 ---
 
-## AI Models
-
-| Model | Purpose |
-|---|---|
-| `gemini-3.1-flash-lite-preview` | Story director, chat, scene planning |
-| `gemini-3.1-flash-image-preview` | AI scene image generation |
-| `veo-3.1-generate-preview` | Cinematic video generation |
-| `gemini-2.5-flash-preview-tts` | Narration voiceover |
-| `gemini-live-2.5-flash-native-audio` | Real-time live voice intelligence |
-
----
-
 ## Project Structure
 
 ```
