@@ -1,8 +1,11 @@
+
 # ARIA — Creative Storyteller
 
 > Talk to an AI creative director. Watch your story come alive — images, video, narration, all in one voice conversation.
 
 **Live demo:** https://aria-79255818146.us-central1.run.app  
+**Demo Video:** https://youtu.be/EZhLbWFiUQA  
+**Proof of GCP Deployment:** https://www.youtube.com/watch?v=CXveRFaFWm4  
 **Category:** Creative Storyteller — Gemini Live Agent Challenge 2026  
 **Built:** February–March 2026
 
@@ -62,7 +65,7 @@ ARIA is a multimodal AI storyteller that generates cinematic scenes through natu
 
 ## Project Structure
 
-```
+```text
 aria/
 ├── main.py                   # Flask app entry point + blueprint registration
 ├── config.py                 # Env vars, model names, constants
@@ -124,15 +127,17 @@ python main.py
 
 ---
 
-## Deploy to Google Cloud Run
+## Deploy to Google Cloud Run (Automated Deployment)
 
-Deployment is fully automated via Google Cloud Build:
+🌟 **Hackathon Bonus Point: Infrastructure-as-Code**  
+Deployment for this project is fully automated via Google Cloud Build. Instead of manual deployments, the pipeline uses a structured script to build the Docker image, push it to Container Registry, and deploy to Cloud Run with exact configurations (memory, CPU, timeout, concurrency). 
 
+👉 **[View the automated deployment script (`cloudbuild.yaml`) here.](https://github.com/Jerryblessed/aria/blob/main/cloudbuild.yaml)**
+
+**To trigger a manual build/deploy:**
 ```bash
 gcloud builds submit --config cloudbuild.yaml --project=YOUR_PROJECT_ID
 ```
-
-This builds the Docker image, pushes it to Container Registry, and deploys to Cloud Run — same URL, zero downtime on every update.
 
 **One-time setup** (grant Cloud Build permissions to deploy):
 
