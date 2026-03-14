@@ -134,7 +134,7 @@ def task_generate_video():
         if not ref and fid and fid in captured_frames:
             ref = captured_frames[fid]["b64"]
         if ref:
-            raw       = base64.b64decode(ref.split(",")[-1])
+            raw         = base64.b64decode(ref.split(",")[-1])
             kw["image"] = PI.open(io.BytesIO(raw)).convert("RGB")
 
         job_set(jid, progress=15)
@@ -170,9 +170,9 @@ def task_generate_video():
 def task_export_video():
     if not verify_task_secret():
         return jsonify({"error": "Unauthorized"}), 403
-    p     = request.get_json(force=True, silent=True) or {}
-    jid   = p.get("jid")
-    items = p.get("items", [])
+    p      = request.get_json(force=True, silent=True) or {}
+    jid    = p.get("jid")
+    items  = p.get("items", [])
     tmpdir = Path(tempfile.mkdtemp())
 
     try:
@@ -181,15 +181,16 @@ def task_export_video():
             job_set(jid, status="error", error="ffmpeg not installed")
             return jsonify({"error": "ffmpeg"}), 500
 
-        input_args   = []
-        filter_parts = []
-        audio_inputs = []
-        n = 0
-        an = 0
+        input_args    = []
+        filter_parts  = []
+        audio_inputs  = []
+        n             = 0   # video stream counter  (for [v0], [v1] labels)
+        an            = 0   # audio stream counter
+        total_inputs  = 0   # actual ffmpeg -i index (video + audio interleaved)
 
         for i, item in enumerate(items):
-            url  = item.get("media_path", "")
-            dur  = max(item.get("duration", 6), 2)
+            url   = item.get("media_path", "")
+            dur   = max(item.get("duration", 6), 2)
             title = item.get("title", "Scene")
             narr  = item.get("narration", "")
 
@@ -202,31 +203,40 @@ def task_export_video():
                     ext = ".mp4" if j2.get("type") == "video" else ".png"
                     lm  = str(tmpdir / f"media_{i}{ext}")
                     gcs_download_to_tmp(j2["gcs_path"], lm)
-                    pp = Path(lm)
+                    pp      = Path(lm)
+                    vid_idx = total_inputs  # ← actual ffmpeg input index
+
                     if pp.suffix == ".mp4":
                         probe = subprocess.run(
-                            ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_streams", str(pp)],
+                            ["ffprobe", "-v", "quiet", "-print_format", "json",
+                             "-show_streams", str(pp)],
                             capture_output=True, text=True, timeout=15,
                         )
                         try:
                             streams = json.loads(probe.stdout).get("streams", [])
-                            vdur    = next((float(s.get("duration", dur)) for s in streams if s.get("codec_type") == "video"), dur)
-                            dur     = max(vdur, 2)
+                            vdur    = next(
+                                (float(s.get("duration", dur))
+                                 for s in streams if s.get("codec_type") == "video"),
+                                dur,
+                            )
+                            dur = max(vdur, 2)
                         except Exception:
                             pass
                         input_args += ["-i", str(pp)]
                         filter_parts.append(
-                            f"[{n}:v]scale=1920:1080:force_original_aspect_ratio=decrease,"
+                            f"[{vid_idx}:v]scale=1920:1080:force_original_aspect_ratio=decrease,"
                             f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[v{n}]"
                         )
                     else:
                         input_args += ["-loop", "1", "-t", str(dur), "-i", str(pp)]
                         filter_parts.append(
-                            f"[{n}:v]scale=1920:1080:force_original_aspect_ratio=decrease,"
+                            f"[{vid_idx}:v]scale=1920:1080:force_original_aspect_ratio=decrease,"
                             f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[v{n}]"
                         )
-                    n += 1
-                    media_added = True
+
+                    total_inputs += 1
+                    n            += 1
+                    media_added   = True
 
             if not media_added:
                 safe_title = title.replace("'", "\\'").replace(":", "\\:")[:60]
@@ -245,9 +255,13 @@ def task_export_video():
                     capture_output=True, timeout=30,
                 )
                 if Path(tout).exists():
+                    vid_idx = total_inputs
                     input_args += ["-i", tout]
-                    filter_parts.append(f"[{n}:v]scale=1920:1080,setsar=1,fps=24[v{n}]")
-                    n += 1
+                    filter_parts.append(
+                        f"[{vid_idx}:v]scale=1920:1080,setsar=1,fps=24[v{n}]"
+                    )
+                    total_inputs += 1
+                    n            += 1
 
             # ── Narration audio (TTS) ─────────────────────────────────────
             audio_path = None
@@ -267,9 +281,12 @@ def task_export_video():
                      "-af", f"apad=whole_dur={dur}", "-t", str(dur), padded],
                     capture_output=True, timeout=30,
                 )
-                input_args += ["-i", padded if Path(padded).exists() else audio_path]
-                audio_inputs.append(an + n)
-                an += 1
+                aud_file = padded if Path(padded).exists() else audio_path
+                aud_idx  = total_inputs
+                input_args += ["-i", aud_file]
+                audio_inputs.append(aud_idx)
+                total_inputs += 1
+                an           += 1
             else:
                 silent = str(tmpdir / f"silent_{i}.wav")
                 subprocess.run(
@@ -277,9 +294,11 @@ def task_export_video():
                      "-i", f"anullsrc=r=24000:cl=mono:d={dur}", "-t", str(dur), silent],
                     capture_output=True, timeout=15,
                 )
+                aud_idx = total_inputs
                 input_args += ["-i", silent]
-                audio_inputs.append(an + n)
-                an += 1
+                audio_inputs.append(aud_idx)
+                total_inputs += 1
+                an           += 1
 
             job_set(jid, progress=5 + int(50 * (i + 1) / len(items)))
 
@@ -288,8 +307,11 @@ def task_export_video():
             return jsonify({"error": "no media"}), 500
 
         # ── Build filter_complex ──────────────────────────────────────────
+        # video_ci: [v0][v1][v2]…  — labels from filter_parts above
+        # audio_ci: [4:a][6:a]…   — actual interleaved input indices
         video_ci = "".join(f"[v{k}]" for k in range(n))
-        audio_ci = "".join(f"[{n + k}:a]" for k in range(an))
+        audio_ci = "".join(f"[{idx}:a]" for idx in audio_inputs)
+
         fc = (
             ";".join(filter_parts)
             + f";{video_ci}concat=n={n}:v=1:a=0[outv]"

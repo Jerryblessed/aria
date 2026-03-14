@@ -1,5 +1,5 @@
 'use strict';
-
+let _narrAudio = null;
 const WORKLET_CODE=`class MicProcessor extends AudioWorkletProcessor{process(inputs){const ch=inputs[0][0];if(ch){const p=new Int16Array(ch.length);for(let i=0;i<ch.length;i++)p[i]=Math.max(-32768,Math.min(32767,ch[i]*32768));this.port.postMessage(p.buffer,[p.buffer])}return true}}registerProcessor('mic-processor',MicProcessor);`;
 const S={
   hist:[],tl:[],busy:false,presenting:false,cancelPresent:false,
@@ -923,26 +923,41 @@ async function present(){
     $prgFill.style.width=Math.round((i/S.tl.length)*100)+'%';
     G(item._card)?.classList.add('presenting');
     await showSceneOnStage(item);
-    if(item._audio){
-      try{
-        const audio=new Audio(item._audio);
-        await new Promise(res=>{audio.onended=res;audio.onerror=res;audio.play().catch(res);setTimeout(res,(item.duration_seconds||8)*1000+2000)});
-      }catch(_){}
-    }else{await sleep((item.duration_seconds||8)*1000)}
+    if (_narrAudio) { _narrAudio.pause(); _narrAudio.src = ''; _narrAudio = null }
+    if (item._audio) {
+      await new Promise(res => {
+        const a = new Audio(item._audio); _narrAudio = a;
+        const dur = (item.duration_seconds || 8) * 1000 + 1500;
+        const t = setTimeout(() => { a.pause(); _narrAudio = null; res() }, dur);
+        a.onended = () => { clearTimeout(t); _narrAudio = null; res() };
+        a.onerror = () => { clearTimeout(t); _narrAudio = null; res() };
+        a.play().catch(() => { clearTimeout(t); _narrAudio = null; res() });
+      });
+    } else { await sleep((item.duration_seconds || 8) * 1000) }
     G(item._card)?.classList.remove('presenting');
   }
   $prgFill.style.width='100%';endPresent();
 }
-async function showSceneOnStage(item){
-  [$sImg,$sVid,$sTxt].forEach(el=>el.style.display='none');$narr.classList.remove('on');
-  if(item.media_path){
-    const isVid=item.media_path.includes('.mp4')||item.mode==='generate_video';
-    if(isVid){$sVid.src=item.media_path;$sVid.style.display='block';$sVid.currentTime=0;$sVid.play().catch(()=>{})}
-    else{$sImg.src=item.media_path;$sImg.style.display='block'}
-    if(item.narration){$ntxt.textContent=item.narration;$narr.classList.add('on')}
-  }else{
-    $sTxt.style.display='flex';$sTxtC.textContent=item.text_overlay||item.title||'';
-    if(item.narration){$ntxt.textContent=item.narration;$narr.classList.add('on')}
+async function showSceneOnStage(item) {
+  [$sImg, $sVid, $sTxt].forEach(el => el.style.display = 'none'); $narr.classList.remove('on');
+  if (item.media_path) {
+    const isVid = item.media_path.includes('.mp4') || item.mode === 'generate_video';
+    if (isVid) {
+      await new Promise(res => {
+        $sVid.oncanplay = res; $sVid.onerror = res; setTimeout(res, 4000);
+        $sVid.src = item.media_path; $sVid.style.display = 'block';
+        $sVid.currentTime = 0; $sVid.play().catch(() => { });
+      });
+    } else {
+      await new Promise(res => {
+        $sImg.onload = res; $sImg.onerror = res; setTimeout(res, 4000);
+        $sImg.src = item.media_path; $sImg.style.display = 'block';
+      });
+    }
+    if (item.narration) { $ntxt.textContent = item.narration; $narr.classList.add('on') }
+  } else {
+    $sTxt.style.display = 'flex'; $sTxtC.textContent = item.text_overlay || item.title || '';
+    if (item.narration) { $ntxt.textContent = item.narration; $narr.classList.add('on') }
   }
 }
 function cancelPresent(){S.cancelPresent=true}
